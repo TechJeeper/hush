@@ -655,32 +655,35 @@ function drawPoster(now, withSeconds) {
   render.drawText(moment, smallFont, live, w - pad - momW, headerY);
 
   /*
-   * Stacked hero time. Digits alone can't fill 200px width, so the
-   * minute plate goes nearly full-bleed — that's the visual mass.
+   * One full-bleed time plate: hours + minutes stacked inside a solid
+   * accent block that owns the middle of the screen.
    */
-  const chipPadY = 4;
+  const innerPad = 6;
   const hourW = render.getTextWidth(parts.hours, timeFont);
   const minW = render.getTextWidth(parts.minutes, timeFont);
-  const chipW = w - pad * 2 - stripeW - 4;
-  const chipH = timeFont.height + chipPadY * 2;
-  const stackGap = -6; /* nest hours slightly into the plate */
-  const metaH = always ? smallFont.height + 2 : 0;
-  const blockH = timeFont.height + stackGap + chipH + metaH;
+  const plateW = w - pad * 2 - stripeW - 2;
+  const plateH = timeFont.height * 2 + innerPad * 2 + 2;
+  const metaH = always ? smallFont.height + 4 : 0;
 
-  const topBound = headerY + smallFont.height + 2;
-  const botBound = g.y - 6;
-  let hourY = topBound + (((botBound - topBound - blockH) / 2) | 0);
-  if (hourY < topBound) hourY = topBound;
+  const topBound = headerY + smallFont.height + 4;
+  const botBound = g.y - 8;
+  let plateY = topBound + (((botBound - topBound - plateH - metaH) / 2) | 0);
+  if (plateY < topBound) plateY = topBound;
 
-  const chipX = pad + stripeW + 2;
-  const chipY = hourY + timeFont.height + stackGap;
-  render.fillRectangle(live, chipX, chipY, chipW, chipH);
-  render.drawText(parts.hours, timeFont, fg, ((w - hourW) / 2) | 0, hourY);
-  render.drawText(parts.minutes, timeFont, bg, ((w - minW) / 2) | 0, chipY + chipPadY);
+  const plateX = pad + stripeW + 1;
+  render.fillRectangle(live, plateX, plateY, plateW, plateH);
+
+  const hourY = plateY + innerPad;
+  const minY = hourY + timeFont.height + 2;
+  /* Hours in fg on accent can wash out — use bg (dark/light) for both. */
+  render.drawText(parts.hours, timeFont, bg, ((w - hourW) / 2) | 0, hourY);
+  render.drawText(parts.minutes, timeFont, bg, ((w - minW) / 2) | 0, minY);
+  /* Hairline between hour and minute rows */
+  render.fillRectangle(fg, plateX + 12, minY - 1, plateW - 24, 1);
 
   if (always) {
     const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, chipY + chipH + 1);
+    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, plateY + plateH + 3);
   }
 }
 
