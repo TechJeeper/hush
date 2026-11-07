@@ -1,0 +1,73 @@
+{
+  "name": "hush",
+  "author": "Hush",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app",
+    "watchface",
+    "minimal",
+    "signals",
+    "battery"
+  ],
+  "private": true,
+  "dependencies": {
+    "@moddable/pebbleproxy": "^0.2.0",
+    "@rebble/clay": "^1.0.10"
+  },
+  "pebble": {
+    "displayName": "Hush",
+    "uuid": "a7c3e91f-4b2d-4f8a-9e1c-6d5b8a0f2c47",
+    "projectType": "moddable",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "gabbro"
+    ],
+    "capabilities": [
+      "location",
+      "configurable",
+      "health"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "Preset",
+      "Theme",
+      "CustomBg",
+      "CustomFg",
+      "CustomAccent",
+      "FontScale",
+      "AlwaysOn",
+      "Use24Hour",
+      "LeadingZero",
+      "PeekMode",
+      "SecondsOnFlick",
+      "HapticSignals",
+      "CalEnabled",
+      "CalMinutes",
+      "IcsUrl",
+      "WxEnabled",
+      "WxRainMin",
+      "WxUv",
+      "WxTempLow",
+      "WxTempHigh",
+      "UseFahrenheit",
+      "HealthEnabled",
+      "StepGoal",
+      "PaceBehindPct",
+      "SysEnabled",
+      "BatThreshold",
+      "SunEnabled",
+      "SunMinutes",
+      "WorldEnabled",
+      "WorldOffset",
+      "WorldStart",
+      "WorldEnd"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}
