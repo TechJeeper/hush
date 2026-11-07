@@ -20,8 +20,8 @@ An adaptive quiet watchface for Pebble Time 2 (Emery) and Pebble Round 2 (Gabbro
 
 Import zip: upload [`dist/hush-cloudpebble.zip`](dist/hush-cloudpebble.zip) via **Import → Upload Zip** on [CloudPebble](https://cloudpebble.repebble.com/).
 
-Or import from GitHub after this repo is public:
-`https://cloudpebble.repebble.com/ide/import/github/<owner>/hush`
+Or import from GitHub:
+`https://cloudpebble.repebble.com/ide/import/github/TechJeeper/hush`
 
 App Kind should be Watchface (JavaScript SDK / Alloy).
 
