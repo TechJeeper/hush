@@ -655,35 +655,33 @@ function drawPoster(now, withSeconds) {
   render.drawText(moment, smallFont, live, w - pad - momW, headerY);
 
   /*
-   * One full-bleed time plate: hours + minutes stacked inside a solid
-   * accent block that owns the middle of the screen.
+   * Full-bleed time plate stretched to fill the band between header and
+   * rail. Digits are centered inside the tall plate so empty black dies.
    */
-  const innerPad = 6;
   const hourW = render.getTextWidth(parts.hours, timeFont);
   const minW = render.getTextWidth(parts.minutes, timeFont);
   const plateW = w - pad * 2 - stripeW - 2;
-  const plateH = timeFont.height * 2 + innerPad * 2 + 2;
   const metaH = always ? smallFont.height + 4 : 0;
-
   const topBound = headerY + smallFont.height + 4;
-  const botBound = g.y - 8;
-  let plateY = topBound + (((botBound - topBound - plateH - metaH) / 2) | 0);
-  if (plateY < topBound) plateY = topBound;
-
+  const botBound = g.y - 6;
+  const plateH = botBound - topBound - metaH;
+  const plateY = topBound;
   const plateX = pad + stripeW + 1;
+
   render.fillRectangle(live, plateX, plateY, plateW, plateH);
 
-  const hourY = plateY + innerPad;
-  const minY = hourY + timeFont.height + 2;
-  /* Hours in fg on accent can wash out — use bg (dark/light) for both. */
+  const digitBlock = timeFont.height * 2 + 4;
+  let hourY = plateY + (((plateH - digitBlock) / 2) | 0);
+  if (hourY < plateY + 4) hourY = plateY + 4;
+  const minY = hourY + timeFont.height + 4;
+
   render.drawText(parts.hours, timeFont, bg, ((w - hourW) / 2) | 0, hourY);
+  render.fillRectangle(fg, plateX + 16, minY - 2, plateW - 32, 1);
   render.drawText(parts.minutes, timeFont, bg, ((w - minW) / 2) | 0, minY);
-  /* Hairline between hour and minute rows */
-  render.fillRectangle(fg, plateX + 12, minY - 1, plateW - 24, 1);
 
   if (always) {
     const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, plateY + plateH + 3);
+    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, plateY + plateH + 2);
   }
 }
 

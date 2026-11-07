@@ -119,27 +119,26 @@ def draw_face(
     hour_w = hb[2] - hb[0]
     min_w = mb[2] - mb[0]
     th = hb[3] - hb[1]
-    inner_pad = 6
     plate_w = w - pad * 2 - stripe_w - 2
-    plate_h = th * 2 + inner_pad * 2 + 2
     meta_h = 18 if always_on else 0
-
     top_bound = header_y + 18
-    bot_bound = rail_y - 8
-    plate_y = top_bound + max(0, (bot_bound - top_bound - plate_h - meta_h) // 2)
+    bot_bound = rail_y - 6
+    plate_h = bot_bound - top_bound - meta_h
+    plate_y = top_bound
     plate_x = pad + stripe_w + 1
 
     draw.rectangle([plate_x, plate_y, plate_x + plate_w, plate_y + plate_h], fill=live)
-    hour_y = plate_y + inner_pad
-    min_y = hour_y + th + 2
+    digit_block = th * 2 + 4
+    hour_y = plate_y + max(4, (plate_h - digit_block) // 2)
+    min_y = hour_y + th + 4
     draw.text(((w - hour_w) // 2, hour_y), hours, font=time_font, fill=t["bg"])
-    draw.rectangle([plate_x + 12, min_y - 1, plate_x + plate_w - 12, min_y], fill=t["fg"])
+    draw.rectangle([plate_x + 16, min_y - 2, plate_x + plate_w - 16, min_y - 1], fill=t["fg"])
     draw.text(((w - min_w) // 2, min_y), mins, font=time_font, fill=t["bg"])
 
     if always_on:
         ab = draw.textbbox((0, 0), always_on, font=small_font)
         aw = ab[2] - ab[0]
-        draw.text(((w - aw) // 2, plate_y + plate_h + 3), always_on, font=small_font, fill=t["dim"])
+        draw.text(((w - aw) // 2, plate_y + plate_h + 2), always_on, font=small_font, fill=t["dim"])
 
     draw.rectangle([rail_x, rail_y, rail_x + rail_w, rail_y + rail_h], fill=t["rail"])
     if pips:
