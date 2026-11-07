@@ -1,0 +1,1 @@
+Adaptive quiet watchface: big time, empty rail, and colored pips only when calendar, weather, pace, or system thresholds matter. Flick for details. Highly customizable, battery-friendly.

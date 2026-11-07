@@ -225,12 +225,14 @@ function updateColors() {
   }
 }
 
+/* Alloy fonts must match firmware sizes exactly or throw "font not found". */
 function pickTimeFont() {
   if (settings.fontScale === "condensed")
-    return new render.Font("Roboto-Condensed", IS_ROUND ? 42 : 40);
+    return new render.Font("Bitham-Light", 42);
   if (settings.fontScale === "bold")
-    return new render.Font("Bitham-Bold", IS_ROUND ? 42 : 42);
-  return new render.Font("Bitham-Black", IS_ROUND ? 42 : 42);
+    return new render.Font("Roboto-Bold", 49);
+  /* display */
+  return new render.Font("Bitham-Bold", 42);
 }
 
 let timeFont = pickTimeFont();

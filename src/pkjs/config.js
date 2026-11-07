@@ -78,9 +78,9 @@ module.exports = [
         label: "Time style",
         defaultValue: "display",
         options: [
-          { label: "Display", value: "display" },
-          { label: "Bold", value: "bold" },
-          { label: "Condensed", value: "condensed" }
+          { label: "Display (Bitham Bold 42)", value: "display" },
+          { label: "Bold (Roboto Bold 49)", value: "bold" },
+          { label: "Light (Bitham Light 42)", value: "condensed" }
         ]
       },
       {

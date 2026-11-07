@@ -42,6 +42,12 @@ Round 2:
 pebble install --emulator gabbro
 ```
 
+## Store assets
+
+- Screenshots (exact display sizes, unframed): [`screenshots/emery/`](screenshots/emery/) (200×228) and [`screenshots/gabbro/`](screenshots/gabbro/) (260×260)
+- Listing copy: [`store/description.txt`](store/description.txt) · [`store/short-description.txt`](store/short-description.txt)
+- Regenerate: `python scripts/generate_store_screenshots.py`
+
 ## Battery notes
 
 - Default tick is `minutechange` only
