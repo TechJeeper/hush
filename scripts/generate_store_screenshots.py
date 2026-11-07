@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Store screenshots — full-bleed time plate with stacked HH/MM."""
+"""Store screenshots — staggered hours + minute chip, tightened."""
 
 from __future__ import annotations
 
@@ -86,19 +86,19 @@ def draw_face(
     live = living(hour)
     img = Image.new("RGB", size, t["bg"])
     draw = ImageDraw.Draw(img)
-    time_font = font(56 if w >= 240 else 50, bold=True)
+    time_font = font(52 if w >= 240 else 48, bold=True)
     small_font = font(13)
     detail_font = font(15, bold=True)
 
-    pad = 22 if round_mask else 6
+    pad = 24 if round_mask else 8
     margin = 36 if round_mask else 14
     rail_h = 12
     rail_y = h - rail_h - (24 if round_mask else 12)
     rail_x = margin
     rail_w = w - margin * 2
 
-    stripe_w = 4
-    stripe_top = 34 if round_mask else 26
+    stripe_w = 4 if round_mask else 5
+    stripe_top = 32 if round_mask else 24
     stripe_bot = rail_y - 8
     day_pct = (hour * 60 + minute) / (24 * 60)
     span = stripe_bot - stripe_top
@@ -107,7 +107,7 @@ def draw_face(
     draw.rectangle([pad, stripe_bot - stripe_h, pad + stripe_w - 1, stripe_bot], fill=live)
 
     header_y = 18 if round_mask else 4
-    draw.text((pad + stripe_w + 5, header_y), weekday, font=small_font, fill=t["dim"])
+    draw.text((pad + stripe_w + 6, header_y), weekday, font=small_font, fill=t["dim"])
     word = moment(hour)
     wb = draw.textbbox((0, 0), word, font=small_font)
     draw.text((w - pad - (wb[2] - wb[0]), header_y), word, font=small_font, fill=live)
@@ -119,26 +119,29 @@ def draw_face(
     hour_w = hb[2] - hb[0]
     min_w = mb[2] - mb[0]
     th = hb[3] - hb[1]
-    plate_w = w - pad * 2 - stripe_w - 2
-    meta_h = 18 if always_on else 0
-    top_bound = header_y + 18
-    bot_bound = rail_y - 6
-    plate_h = bot_bound - top_bound - meta_h
-    plate_y = top_bound
-    plate_x = pad + stripe_w + 1
+    chip_pad_x, chip_pad_y = 6, 3
+    chip_w = min_w + chip_pad_x * 2
+    chip_h = th + chip_pad_y * 2
+    stagger = int(th * (0.45 if round_mask else 0.55))
+    meta_h = 16 if always_on else 0
+    block_h = th + stagger + chip_pad_y + meta_h
 
-    draw.rectangle([plate_x, plate_y, plate_x + plate_w, plate_y + plate_h], fill=live)
-    digit_block = th * 2 + 4
-    hour_y = plate_y + max(4, (plate_h - digit_block) // 2)
-    min_y = hour_y + th + 4
-    draw.text(((w - hour_w) // 2, hour_y), hours, font=time_font, fill=t["bg"])
-    draw.rectangle([plate_x + 16, min_y - 2, plate_x + plate_w - 16, min_y - 1], fill=t["fg"])
-    draw.text(((w - min_w) // 2, min_y), mins, font=time_font, fill=t["bg"])
+    top_bound = header_y + 16
+    bot_bound = rail_y - 6
+    hour_y = top_bound + max(0, (bot_bound - top_bound - block_h) // 2)
+    hour_x = pad + stripe_w + 4
+    chip_x = w - pad - chip_w
+    chip_y = hour_y + stagger
+    if chip_x < hour_x + hour_w - 8:
+        chip_x = min(w - pad - chip_w, hour_x + hour_w - 12)
+
+    draw.text((hour_x, hour_y), hours, font=time_font, fill=t["fg"])
+    draw.rectangle([chip_x, chip_y, chip_x + chip_w, chip_y + chip_h], fill=live)
+    draw.text((chip_x + chip_pad_x, chip_y + chip_pad_y), mins, font=time_font, fill=t["bg"])
 
     if always_on:
-        ab = draw.textbbox((0, 0), always_on, font=small_font)
-        aw = ab[2] - ab[0]
-        draw.text(((w - aw) // 2, plate_y + plate_h + 2), always_on, font=small_font, fill=t["dim"])
+        ay = max(hour_y + th + 1, chip_y + chip_h + 2)
+        draw.text((hour_x, ay), always_on, font=small_font, fill=t["dim"])
 
     draw.rectangle([rail_x, rail_y, rail_x + rail_w, rail_y + rail_h], fill=t["rail"])
     if pips:
@@ -157,7 +160,7 @@ def draw_face(
 
     if detail:
         title, line = detail
-        card_y = int(h * 0.40)
+        card_y = int(h * 0.55)
         draw.rectangle([8, card_y - 2, w - 8, card_y + 38], fill=t["bg"])
         draw.rectangle([8, card_y - 2, w - 8, card_y + 1], fill=live)
         draw.text((14, card_y + 4), title, font=detail_font, fill=t["fg"])

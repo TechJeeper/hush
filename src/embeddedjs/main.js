@@ -636,11 +636,11 @@ function drawPoster(now, withSeconds) {
   const moment = momentWord(now);
   const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
   const g = railGeometry();
-  const pad = IS_ROUND ? 22 : 6;
+  const pad = IS_ROUND ? 24 : 8;
 
-  /* Thin day stripe */
-  const stripeW = 4;
-  const stripeTop = IS_ROUND ? 34 : 26;
+  /* Day stripe */
+  const stripeW = IS_ROUND ? 4 : 5;
+  const stripeTop = IS_ROUND ? 32 : 24;
   const stripeBot = g.y - 8;
   const stripeSpan = stripeBot - stripeTop;
   const stripeH = Math.max(16, (stripeSpan * dayPct) | 0);
@@ -650,38 +650,42 @@ function drawPoster(now, withSeconds) {
   /* Compact header */
   const headerY = IS_ROUND ? 18 : 4;
   const day = DAYS[now.getDay()].toUpperCase();
-  render.drawText(day, smallFont, dim, pad + stripeW + 5, headerY);
+  render.drawText(day, smallFont, dim, pad + stripeW + 6, headerY);
   const momW = render.getTextWidth(moment, smallFont);
   render.drawText(moment, smallFont, live, w - pad - momW, headerY);
 
   /*
-   * Full-bleed time plate stretched to fill the band between header and
-   * rail. Digits are centered inside the tall plate so empty black dies.
+   * Staggered time: big hours left, minute chip dropped right.
+   * Sized to fill the band between header and rail without a full-bleed plate.
    */
+  const chipPadX = 6;
+  const chipPadY = 3;
   const hourW = render.getTextWidth(parts.hours, timeFont);
   const minW = render.getTextWidth(parts.minutes, timeFont);
-  const plateW = w - pad * 2 - stripeW - 2;
-  const metaH = always ? smallFont.height + 4 : 0;
-  const topBound = headerY + smallFont.height + 4;
+  const chipW = minW + chipPadX * 2;
+  const chipH = timeFont.height + chipPadY * 2;
+  const staggerY = IS_ROUND ? ((timeFont.height * 0.45) | 0) : ((timeFont.height * 0.55) | 0);
+  const metaH = always ? smallFont.height + 2 : 0;
+  const blockH = timeFont.height + staggerY + chipPadY + metaH;
+
+  const topBound = headerY + smallFont.height + 2;
   const botBound = g.y - 6;
-  const plateH = botBound - topBound - metaH;
-  const plateY = topBound;
-  const plateX = pad + stripeW + 1;
+  let hourY = topBound + (((botBound - topBound - blockH) / 2) | 0);
+  if (hourY < topBound) hourY = topBound;
 
-  render.fillRectangle(live, plateX, plateY, plateW, plateH);
+  const hourX = pad + stripeW + 4;
+  let chipX = w - pad - chipW;
+  const chipY = hourY + staggerY;
+  /* Keep chip from colliding with hours on narrow faces */
+  if (chipX < hourX + hourW - 8)
+    chipX = Math.min(w - pad - chipW, hourX + hourW - 12);
 
-  const digitBlock = timeFont.height * 2 + 4;
-  let hourY = plateY + (((plateH - digitBlock) / 2) | 0);
-  if (hourY < plateY + 4) hourY = plateY + 4;
-  const minY = hourY + timeFont.height + 4;
-
-  render.drawText(parts.hours, timeFont, bg, ((w - hourW) / 2) | 0, hourY);
-  render.fillRectangle(fg, plateX + 16, minY - 2, plateW - 32, 1);
-  render.drawText(parts.minutes, timeFont, bg, ((w - minW) / 2) | 0, minY);
+  render.drawText(parts.hours, timeFont, fg, hourX, hourY);
+  render.fillRectangle(live, chipX, chipY, chipW, chipH);
+  render.drawText(parts.minutes, timeFont, bg, chipX + chipPadX, chipY + chipPadY);
 
   if (always) {
-    const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, plateY + plateH + 2);
+    render.drawText(always, smallFont, dim, hourX, Math.max(hourY + timeFont.height + 1, chipY + chipH + 2));
   }
 }
 
