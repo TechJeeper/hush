@@ -1,5 +1,7 @@
 Time first. Everything else only when it matters.
 
-Hush is an adaptive quiet watchface for Pebble Time 2 and Round 2. Most of the day you see large readable time, one optional soft detail, and a calm empty rail. When something crosses a threshold you set—calendar, rain, step pace, battery, sunrise, or a second-timezone overlap—a colored pip lights up. Flick your wrist for a five-second detail card, then the face returns to quiet.
+Hush is an adaptive quiet watchface for Pebble Time 2 and Round 2. The calm face is a small poster: weekday, huge hours, minutes in a living accent chip, and a mood word (DAWN, MORNING, AFTERNOON, GOLDEN, NIGHT…) that changes with the day. A side stripe fills as the day passes; the bottom rail fills through the hour — until something actually needs you.
 
-Customize themes (Ink, Paper, Night, Phosphor, Coral, or your own colors), always-on slot, and every signal threshold. One-tap presets for Commuter, Parent, Deep Work, and Weekend. Battery-friendly by design: minute updates, cached weather and calendar, no live heart-rate sampling, and a low-power mode at 15%.
+When a threshold you set is crossed — calendar event, rain, step pace, battery, sunrise/sunset, or a second-timezone overlap — colored pips light the rail. Flick for a five-second detail card, then it goes quiet again.
+
+Themes: Ink, Paper, Night, Phosphor, Coral, or custom colors. Always-on slot for date, weekday, battery, or steps. One-tap presets: Commuter, Parent, Deep Work, Weekend. Battery-friendly: minute updates, cached weather and calendar, no live heart-rate sampling, low-power mode at 15%.

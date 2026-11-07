@@ -1,1 +1,1 @@
-Adaptive quiet watchface: big time, empty rail, and colored pips only when calendar, weather, pace, or system thresholds matter. Flick for details. Highly customizable, battery-friendly.
+Poster-style quiet watchface: big hours, a minute chip, and a mood word that shifts through the day. Colored pips only when calendar, weather, pace, or system thresholds matter. Flick for details. Customizable and battery-friendly.
