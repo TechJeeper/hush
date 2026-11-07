@@ -238,11 +238,11 @@ function updateColors() {
 /* Alloy fonts must match firmware sizes exactly or throw "font not found". */
 function pickTimeFont() {
   if (settings.fontScale === "condensed")
-    return new render.Font("Bitham-Light", 42);
+    return new render.Font("Bitham-Bold", 42);
   if (settings.fontScale === "bold")
-    return new render.Font("Roboto-Bold", 49);
-  /* display */
-  return new render.Font("Bitham-Bold", 42);
+    return new render.Font("Bitham-Black", 30);
+  /* display — largest available numeric-friendly face */
+  return new render.Font("Roboto-Bold", 49);
 }
 
 let timeFont = pickTimeFont();
@@ -635,52 +635,60 @@ function drawPoster(now, withSeconds) {
   const always = lowPower ? `${batteryPercent}%` : formatAlwaysOn(now);
   const moment = momentWord(now);
   const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
-  const pad = IS_ROUND ? 28 : 12;
+  const g = railGeometry();
+  const pad = IS_ROUND ? 24 : 8;
 
-  /* Bold day stripe on the left — grows taller through the day. */
-  const stripeW = IS_ROUND ? 5 : 7;
-  const stripeH = Math.max(24, ((h - 40) * dayPct) | 0);
-  render.fillRectangle(railBg, pad, 18, stripeW, h - 40);
-  render.fillRectangle(live, pad, 18 + (h - 40 - stripeH), stripeW, stripeH);
+  /* Day stripe — short and tight against the left edge. */
+  const stripeW = IS_ROUND ? 4 : 5;
+  const stripeTop = IS_ROUND ? 36 : 28;
+  const stripeBot = g.y - 10;
+  const stripeSpan = stripeBot - stripeTop;
+  const stripeH = Math.max(20, (stripeSpan * dayPct) | 0);
+  render.fillRectangle(railBg, pad, stripeTop, stripeW, stripeSpan);
+  render.fillRectangle(live, pad, stripeBot - stripeH, stripeW, stripeH);
 
-  /* Moment word — gives every glance a mood. */
-  const mw = render.getTextWidth(moment, detailFont);
-  render.drawText(moment, detailFont, live, w - pad - mw, IS_ROUND ? 28 : 14);
-
-  /* Weekday whisper top-left of the content column. */
+  /* Header row: weekday + moment — compact, frees vertical room for time. */
+  const headerY = IS_ROUND ? 22 : 8;
   const day = DAYS[now.getDay()].toUpperCase();
-  render.drawText(day, smallFont, dim, pad + stripeW + 8, IS_ROUND ? 30 : 16);
+  render.drawText(day, smallFont, dim, pad + stripeW + 6, headerY);
+  const momW = render.getTextWidth(moment, smallFont);
+  render.drawText(moment, smallFont, live, w - pad - momW, headerY);
 
-  /* Huge hours, left-weighted. */
-  const hourX = pad + stripeW + 6;
-  const hourY = IS_ROUND ? ((h - timeFont.height) / 2 - 18) | 0 : 52;
-  render.drawText(parts.hours, timeFont, fg, hourX, hourY);
-
-  /* Minutes sit in a solid accent chip — the visual hook. */
-  const chipPad = 6;
+  /* Time row: huge hours + minute chip on ONE line to fill the width. */
+  const chipPadX = 4;
+  const chipPadY = 2;
+  const hourW = render.getTextWidth(parts.hours, timeFont);
   const minW = render.getTextWidth(parts.minutes, timeFont);
-  const chipW = minW + chipPad * 2;
-  const chipH = timeFont.height + 4;
-  let chipX = w - pad - chipW;
-  let chipY = hourY + (IS_ROUND ? timeFont.height - 8 : 28);
-  if (chipX < hourX + 40) chipX = hourX + 4;
-  render.fillRectangle(live, chipX, chipY, chipW, chipH);
-  render.drawText(parts.minutes, timeFont, bg, chipX + chipPad, chipY + 2);
-
-  /* Always-on under the hours. */
-  if (always) {
-    render.drawText(always, smallFont, dim, hourX, hourY + timeFont.height + 4);
+  const chipW = minW + chipPadX * 2;
+  const chipH = timeFont.height + chipPadY * 2;
+  const gap = 6;
+  const rowW = hourW + gap + chipW;
+  const contentLeft = pad + stripeW + 6;
+  const contentRight = w - pad;
+  const avail = contentRight - contentLeft;
+  let hourX = contentLeft;
+  let chipX = contentLeft + hourW + gap;
+  /* If the pair is narrower than the band, spread it; if wider, pack left. */
+  if (rowW < avail - 4) {
+    hourX = contentLeft + (((avail - rowW) / 2) | 0);
+    chipX = hourX + hourW + gap;
+  } else {
+    chipX = Math.min(chipX, contentRight - chipW);
   }
 
-  /* Hour tick marks along the bottom edge above the rail. */
-  if (!lowPower) {
-    const g = railGeometry();
-    const ticks = 6;
-    for (let i = 0; i <= ticks; i++) {
-      const tx = g.x + ((g.width * i) / ticks) | 0;
-      const tall = i === 0 || i === ticks || i === 3;
-      render.fillRectangle(dim, tx, g.y - (tall ? 8 : 5), 1, tall ? 6 : 3);
-    }
+  const metaH = always ? smallFont.height + 4 : 0;
+  const blockH = timeFont.height + metaH;
+  let hourY = ((g.y - 8 - headerY - smallFont.height - blockH) / 2 + headerY + smallFont.height) | 0;
+  if (hourY < headerY + smallFont.height + 4)
+    hourY = headerY + smallFont.height + 4;
+
+  render.drawText(parts.hours, timeFont, fg, hourX, hourY);
+  render.fillRectangle(live, chipX, hourY - chipPadY, chipW, chipH);
+  render.drawText(parts.minutes, timeFont, bg, chipX + chipPadX, hourY);
+
+  if (always) {
+    const aw = render.getTextWidth(always, smallFont);
+    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, hourY + timeFont.height + 2);
   }
 }
 
