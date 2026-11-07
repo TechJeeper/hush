@@ -586,9 +586,9 @@ function contentWidth() {
 function railGeometry() {
   const w = contentWidth();
   const h = contentHeight();
-  const railH = 8;
-  const margin = IS_ROUND ? 34 : 16;
-  const y = h - railH - (IS_ROUND ? 26 : 14);
+  const railH = 12;
+  const margin = IS_ROUND ? 36 : 14;
+  const y = h - railH - (IS_ROUND ? 24 : 12);
   return { x: margin, y, width: w - margin * 2, height: railH };
 }
 
@@ -603,96 +603,110 @@ function timeParts(now, withSeconds) {
   return { hours: h, minutes: m };
 }
 
-function drawAtmosphere(now) {
-  const w = contentWidth();
-  const h = contentHeight();
-  const theme = settings.theme;
-
-  /* Day progress hairline — always something alive, updates once a minute. */
-  const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
-  const barW = IS_ROUND ? (w * 0.55) | 0 : (w - 32);
-  const barX = ((w - barW) / 2) | 0;
-  const barY = IS_ROUND ? 22 : 10;
-  render.fillRectangle(railBg, barX, barY, barW, 2);
-  render.fillRectangle(accent, barX, barY, Math.max(2, (barW * dayPct) | 0), 2);
-
-  if (theme === "paper") {
-    /* Notebook margin */
-    render.fillRectangle(accent, 10, 8, 2, h - 16);
-  } else if (theme === "phosphor") {
-    render.fillRectangle(accent, 0, 0, w, 3);
-  } else if (theme === "night" || theme === "ink" || theme === "custom") {
-    /* Corner ticks */
-    const L = 10;
-    render.fillRectangle(dim, 8, 8, L, 1);
-    render.fillRectangle(dim, 8, 8, 1, L);
-    render.fillRectangle(dim, w - 8 - L, 8, L, 1);
-    render.fillRectangle(dim, w - 9, 8, 1, L);
-    render.fillRectangle(dim, 8, h - 9, L, 1);
-    render.fillRectangle(dim, 8, h - 8 - L, 1, L);
-    render.fillRectangle(dim, w - 8 - L, h - 9, L, 1);
-    render.fillRectangle(dim, w - 9, h - 8 - L, 1, L);
-  } else if (theme === "coral") {
-    render.fillRectangle(accent, barX, barY + 4, barW, 1);
-  }
+/* Accent shifts through the day so the face changes character every few hours. */
+function livingAccentRGB(now) {
+  const hr = now.getHours();
+  if (hr < 6) return { r: 110, g: 130, b: 220 };
+  if (hr < 9) return { r: 255, g: 150, b: 70 };
+  if (hr < 12) return { r: 70, g: 200, b: 170 };
+  if (hr < 15) return { r: 70, g: 170, b: 230 };
+  if (hr < 18) return { r: 255, g: 120, b: 90 };
+  if (hr < 21) return { r: 200, g: 110, b: 220 };
+  return { r: 120, g: 140, b: 230 };
 }
 
-function drawStackedTime(now, withSeconds) {
+function momentWord(now) {
+  const hr = now.getHours();
+  if (hr < 5) return "LATE";
+  if (hr < 7) return "DAWN";
+  if (hr < 11) return "MORNING";
+  if (hr < 13) return "MIDDAY";
+  if (hr < 17) return "AFTERNOON";
+  if (hr < 19) return "GOLDEN";
+  if (hr < 22) return "EVENING";
+  return "NIGHT";
+}
+
+function drawPoster(now, withSeconds) {
   const w = contentWidth();
   const h = contentHeight();
   const parts = timeParts(now, withSeconds);
+  const live = rgb(livingAccentRGB(now));
   const always = lowPower ? `${batteryPercent}%` : formatAlwaysOn(now);
+  const moment = momentWord(now);
+  const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
+  const pad = IS_ROUND ? 28 : 12;
 
-  const gap = 2;
-  const ruleH = 2;
-  const alwaysH = always ? smallFont.height + 8 : 0;
-  const block = timeFont.height * 2 + gap + ruleH + 6 + alwaysH;
-  let top = ((h - block) / 2) | 0;
-  if (IS_ROUND) top = ((h - block) / 2 - 6) | 0;
+  /* Bold day stripe on the left — grows taller through the day. */
+  const stripeW = IS_ROUND ? 5 : 7;
+  const stripeH = Math.max(24, ((h - 40) * dayPct) | 0);
+  render.fillRectangle(railBg, pad, 18, stripeW, h - 40);
+  render.fillRectangle(live, pad, 18 + (h - 40 - stripeH), stripeW, stripeH);
 
-  const hw = render.getTextWidth(parts.hours, timeFont);
-  const mw = render.getTextWidth(parts.minutes, timeFont);
-  render.drawText(parts.hours, timeFont, fg, ((w - hw) / 2) | 0, top);
-  render.drawText(parts.minutes, timeFont, accent, ((w - mw) / 2) | 0, top + timeFont.height + gap);
+  /* Moment word — gives every glance a mood. */
+  const mw = render.getTextWidth(moment, detailFont);
+  render.drawText(moment, detailFont, live, w - pad - mw, IS_ROUND ? 28 : 14);
 
-  const ruleY = top + timeFont.height * 2 + gap + 4;
-  const ruleW = Math.max(hw, mw) - 8;
-  const ruleX = ((w - ruleW) / 2) | 0;
-  render.fillRectangle(railBg, ruleX, ruleY, ruleW, ruleH);
-  /* Minute-within-hour marker on the rule */
-  const minPct = now.getMinutes() / 60;
-  render.fillRectangle(accent, ruleX, ruleY, Math.max(2, (ruleW * minPct) | 0), ruleH);
+  /* Weekday whisper top-left of the content column. */
+  const day = DAYS[now.getDay()].toUpperCase();
+  render.drawText(day, smallFont, dim, pad + stripeW + 8, IS_ROUND ? 30 : 16);
 
+  /* Huge hours, left-weighted. */
+  const hourX = pad + stripeW + 6;
+  const hourY = IS_ROUND ? ((h - timeFont.height) / 2 - 18) | 0 : 52;
+  render.drawText(parts.hours, timeFont, fg, hourX, hourY);
+
+  /* Minutes sit in a solid accent chip — the visual hook. */
+  const chipPad = 6;
+  const minW = render.getTextWidth(parts.minutes, timeFont);
+  const chipW = minW + chipPad * 2;
+  const chipH = timeFont.height + 4;
+  let chipX = w - pad - chipW;
+  let chipY = hourY + (IS_ROUND ? timeFont.height - 8 : 28);
+  if (chipX < hourX + 40) chipX = hourX + 4;
+  render.fillRectangle(live, chipX, chipY, chipW, chipH);
+  render.drawText(parts.minutes, timeFont, bg, chipX + chipPad, chipY + 2);
+
+  /* Always-on under the hours. */
   if (always) {
-    const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, ruleY + ruleH + 6);
+    render.drawText(always, smallFont, dim, hourX, hourY + timeFont.height + 4);
+  }
+
+  /* Hour tick marks along the bottom edge above the rail. */
+  if (!lowPower) {
+    const g = railGeometry();
+    const ticks = 6;
+    for (let i = 0; i <= ticks; i++) {
+      const tx = g.x + ((g.width * i) / ticks) | 0;
+      const tall = i === 0 || i === ticks || i === 3;
+      render.fillRectangle(dim, tx, g.y - (tall ? 8 : 5), 1, tall ? 6 : 3);
+    }
   }
 }
 
 function drawSignalRail(now) {
   if (lowPower) return;
   const g = railGeometry();
+  const live = rgb(livingAccentRGB(now));
   render.fillRectangle(railBg, g.x, g.y, g.width, g.height);
 
   const count = activeSignals.length;
   if (!count) {
-    /* Calm rail: fill through the hour so the face always feels alive. */
-    const fill = Math.max(2, ((g.width * now.getMinutes()) / 60) | 0);
-    render.fillRectangle(accent, g.x, g.y, fill, g.height);
-    /* Soft end caps */
-    render.fillRectangle(fg, g.x, g.y, 2, g.height);
+    const fill = Math.max(3, ((g.width * now.getMinutes()) / 60) | 0);
+    render.fillRectangle(live, g.x, g.y, fill, g.height);
+    render.fillRectangle(fg, g.x + fill - 2, g.y - 2, 3, g.height + 4);
     return;
   }
 
-  const gap = 4;
-  const pipW = Math.max(12, ((g.width - gap * (MAX_PIPS - 1)) / MAX_PIPS) | 0);
+  const gap = 3;
+  const pipW = Math.max(14, ((g.width - gap * (MAX_PIPS - 1)) / MAX_PIPS) | 0);
   let x = g.x;
   for (let i = 0; i < count; i++) {
     const s = activeSignals[i];
-    const color = pipPalette[s.id] || accent;
+    const color = pipPalette[s.id] || live;
     render.fillRectangle(color, x, g.y, pipW, g.height);
     if (detailIndex === i) {
-      render.fillRectangle(fg, x, g.y - 3, pipW, 2);
+      render.fillRectangle(fg, x, g.y - 4, pipW, 3);
     }
     x += pipW + gap;
   }
@@ -703,14 +717,14 @@ function drawDetailCard() {
   const s = activeSignals[detailIndex];
   const w = contentWidth();
   const h = contentHeight();
-  const cardH = detailFont.height + smallFont.height + 10;
-  const y = (IS_ROUND ? h * 0.68 : h * 0.64) | 0;
+  const cardH = detailFont.height + smallFont.height + 12;
+  const y = (IS_ROUND ? h * 0.58 : h * 0.55) | 0;
+  const live = rgb(livingAccentRGB(lastDate));
 
-  render.fillRectangle(bg, 8, y - 2, w - 16, cardH + 4);
-  render.fillRectangle(accent, 12, y, 3, cardH - 2);
-
-  render.drawText(s.title, detailFont, fg, 22, y);
-  render.drawText(s.detail, smallFont, dim, 22, y + detailFont.height + 2);
+  render.fillRectangle(bg, 10, y - 2, w - 20, cardH + 4);
+  render.fillRectangle(live, 10, y - 2, w - 20, 3);
+  render.drawText(s.title, detailFont, fg, 16, y + 6);
+  render.drawText(s.detail, smallFont, dim, 16, y + 6 + detailFont.height + 2);
 }
 
 function drawScreen(event) {
@@ -719,15 +733,11 @@ function drawScreen(event) {
 
   render.begin();
   render.fillRectangle(bg, 0, 0, render.width, render.height);
-
-  if (!lowPower) drawAtmosphere(now);
-  drawStackedTime(now, showingSeconds);
-
+  drawPoster(now, showingSeconds);
   if (!lowPower) {
     drawSignalRail(now);
     if (detailIndex >= 0) drawDetailCard();
   }
-
   render.end();
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render store-ready Hush screenshots at exact Pebble display sizes."""
+"""Render store-ready Hush screenshots — poster layout."""
 
 from __future__ import annotations
 
@@ -11,50 +11,57 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "screenshots"
 
 THEMES = {
-    "ink": {
-        "bg": (0, 0, 0),
-        "fg": (245, 245, 240),
-        "dim": (90, 90, 88),
-        "accent": (85, 170, 170),
-        "rail": (40, 40, 40),
-    },
-    "paper": {
-        "bg": (236, 232, 220),
-        "fg": (28, 28, 26),
-        "dim": (140, 136, 128),
-        "accent": (180, 70, 50),
-        "rail": (200, 196, 184),
-    },
-    "night": {
-        "bg": (8, 10, 18),
-        "fg": (200, 210, 230),
-        "dim": (70, 78, 96),
-        "accent": (100, 140, 220),
-        "rail": (24, 28, 40),
-    },
-    "coral": {
-        "bg": (28, 18, 22),
-        "fg": (255, 236, 228),
-        "dim": (110, 80, 85),
-        "accent": (255, 110, 90),
-        "rail": (50, 32, 36),
-    },
+    "ink": {"bg": (0, 0, 0), "fg": (245, 245, 240), "dim": (90, 90, 88), "rail": (40, 40, 40)},
+    "paper": {"bg": (236, 232, 220), "fg": (28, 28, 26), "dim": (140, 136, 128), "rail": (200, 196, 184)},
+    "night": {"bg": (8, 10, 18), "fg": (200, 210, 230), "dim": (70, 78, 96), "rail": (24, 28, 40)},
 }
 
 PIP = {
     "calendar": (85, 170, 255),
     "weather": (90, 190, 120),
     "health": (255, 140, 70),
-    "system": (255, 80, 80),
 }
 
 
+def living(hour: int):
+    if hour < 6:
+        return (110, 130, 220)
+    if hour < 9:
+        return (255, 150, 70)
+    if hour < 12:
+        return (70, 200, 170)
+    if hour < 15:
+        return (70, 170, 230)
+    if hour < 18:
+        return (255, 120, 90)
+    if hour < 21:
+        return (200, 110, 220)
+    return (120, 140, 230)
+
+
+def moment(hour: int) -> str:
+    if hour < 5:
+        return "LATE"
+    if hour < 7:
+        return "DAWN"
+    if hour < 11:
+        return "MORNING"
+    if hour < 13:
+        return "MIDDAY"
+    if hour < 17:
+        return "AFTERNOON"
+    if hour < 19:
+        return "GOLDEN"
+    if hour < 22:
+        return "EVENING"
+    return "NIGHT"
+
+
 def font(size: int, bold: bool = False):
-    candidates = [
+    for path in (
         r"C:\Windows\Fonts\arialbd.ttf" if bold else r"C:\Windows\Fonts\arial.ttf",
         r"C:\Windows\Fonts\segoeuib.ttf" if bold else r"C:\Windows\Fonts\segoeui.ttf",
-    ]
-    for path in candidates:
+    ):
         try:
             return ImageFont.truetype(path, size)
         except OSError:
@@ -62,163 +69,120 @@ def font(size: int, bold: bool = False):
     return ImageFont.load_default()
 
 
-def center_text(draw, text, y, fnt, fill, width):
-    bbox = draw.textbbox((0, 0), text, font=fnt)
-    tw = bbox[2] - bbox[0]
-    draw.text(((width - tw) // 2, y), text, font=fnt, fill=fill)
-
-
 def draw_face(
     size,
     *,
     theme="ink",
-    hours="14",
-    minutes="32",
+    hour=14,
+    minute=32,
+    weekday="FRI",
     always_on="Nov 7",
     pips=None,
     detail=None,
-    minute=32,
     round_mask=False,
 ):
     w, h = size
     t = THEMES[theme]
+    live = living(hour)
     img = Image.new("RGB", size, t["bg"])
     draw = ImageDraw.Draw(img)
-
     time_font = font(42 if w >= 240 else 36, bold=True)
-    small_font = font(14)
     detail_font = font(16, bold=True)
+    small_font = font(13)
 
-    # Day progress
-    day_pct = (14 * 60 + minute) / (24 * 60)
-    bar_w = int(w * 0.55) if round_mask else w - 32
-    bar_x = (w - bar_w) // 2
-    bar_y = 22 if round_mask else 10
-    draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + 1], fill=t["rail"])
+    pad = 28 if round_mask else 12
+    stripe_w = 5 if round_mask else 7
+    day_pct = (hour * 60 + minute) / (24 * 60)
+    stripe_h = max(24, int((h - 40) * day_pct))
+    draw.rectangle([pad, 18, pad + stripe_w - 1, h - 22], fill=t["rail"])
     draw.rectangle(
-        [bar_x, bar_y, bar_x + max(2, int(bar_w * day_pct)), bar_y + 1],
-        fill=t["accent"],
+        [pad, 18 + (h - 40 - stripe_h), pad + stripe_w - 1, 18 + (h - 40 - stripe_h) + stripe_h],
+        fill=live,
     )
 
-    if theme == "paper":
-        draw.rectangle([10, 8, 11, h - 8], fill=t["accent"])
-    elif theme in ("ink", "night", "custom"):
-        L = 10
-        for x, y in [(8, 8), (w - 8 - L, 8), (8, h - 9), (w - 8 - L, h - 9)]:
-            draw.rectangle([x, y, x + L, y], fill=t["dim"])
-        for x, y in [(8, 8), (w - 9, 8), (8, h - 8 - L), (w - 9, h - 8 - L)]:
-            draw.rectangle([x, y, x, y + L], fill=t["dim"])
+    word = moment(hour)
+    bbox = draw.textbbox((0, 0), word, font=detail_font)
+    draw.text((w - pad - (bbox[2] - bbox[0]), 28 if round_mask else 14), word, font=detail_font, fill=live)
+    draw.text((pad + stripe_w + 8, 30 if round_mask else 16), weekday, font=small_font, fill=t["dim"])
 
-    gap = 2
-    rule_h = 2
-    always_h = 22 if always_on else 0
-    block = 42 * 2 + gap + rule_h + 6 + always_h
-    top = (h - block) // 2 - (6 if round_mask else 0)
+    hours = f"{hour:02d}"
+    mins = f"{minute:02d}"
+    hour_x = pad + stripe_w + 6
+    hour_y = (h - 42) // 2 - 18 if round_mask else 52
+    draw.text((hour_x, hour_y), hours, font=time_font, fill=t["fg"])
 
-    center_text(draw, hours, top, time_font, t["fg"], w)
-    center_text(draw, minutes, top + 44, time_font, t["accent"], w)
-
-    hw = draw.textbbox((0, 0), hours, font=time_font)
-    mw = draw.textbbox((0, 0), minutes, font=time_font)
-    rule_w = max(hw[2] - hw[0], mw[2] - mw[0]) - 8
-    rule_x = (w - rule_w) // 2
-    rule_y = top + 44 + 42 + 4
-    draw.rectangle([rule_x, rule_y, rule_x + rule_w, rule_y + rule_h - 1], fill=t["rail"])
-    draw.rectangle(
-        [rule_x, rule_y, rule_x + max(2, int(rule_w * minute / 60)), rule_y + rule_h - 1],
-        fill=t["accent"],
-    )
+    mb = draw.textbbox((0, 0), mins, font=time_font)
+    min_w = mb[2] - mb[0]
+    chip_pad = 6
+    chip_w = min_w + chip_pad * 2
+    chip_h = 46
+    chip_x = w - pad - chip_w
+    chip_y = hour_y + (42 - 8 if round_mask else 28)
+    draw.rectangle([chip_x, chip_y, chip_x + chip_w, chip_y + chip_h], fill=live)
+    draw.text((chip_x + chip_pad, chip_y + 2), mins, font=time_font, fill=t["bg"])
 
     if always_on:
-        center_text(draw, always_on, rule_y + rule_h + 6, small_font, t["dim"], w)
+        draw.text((hour_x, hour_y + 46), always_on, font=small_font, fill=t["dim"])
 
-    margin = 34 if round_mask else 16
-    rail_h = 8
-    rail_y = h - rail_h - (26 if round_mask else 14)
+    margin = 36 if round_mask else 14
+    rail_h = 12
+    rail_y = h - rail_h - (24 if round_mask else 12)
     rail_x = margin
     rail_w = w - margin * 2
     draw.rectangle([rail_x, rail_y, rail_x + rail_w, rail_y + rail_h], fill=t["rail"])
 
     if pips:
-        gap_p = 4
-        pip_w = max(12, (rail_w - gap_p * 3) // 4)
+        gap = 3
+        pip_w = max(14, (rail_w - gap * 3) // 4)
         x = rail_x
         for i, name in enumerate(pips[:4]):
-            color = PIP.get(name, t["accent"])
-            draw.rectangle([x, rail_y, x + pip_w, rail_y + rail_h], fill=color)
+            draw.rectangle([x, rail_y, x + pip_w, rail_y + rail_h], fill=PIP.get(name, live))
             if detail and i == 0:
-                draw.rectangle([x, rail_y - 3, x + pip_w, rail_y - 1], fill=t["fg"])
-            x += pip_w + gap_p
+                draw.rectangle([x, rail_y - 4, x + pip_w, rail_y - 1], fill=t["fg"])
+            x += pip_w + gap
     else:
-        fill = max(2, int(rail_w * minute / 60))
-        draw.rectangle([rail_x, rail_y, rail_x + fill, rail_y + rail_h], fill=t["accent"])
-        draw.rectangle([rail_x, rail_y, rail_x + 1, rail_y + rail_h], fill=t["fg"])
+        fill = max(3, int(rail_w * minute / 60))
+        draw.rectangle([rail_x, rail_y, rail_x + fill, rail_y + rail_h], fill=live)
+        draw.rectangle([rail_x + fill - 2, rail_y - 2, rail_x + fill + 1, rail_y + rail_h + 2], fill=t["fg"])
 
     if detail:
         title, line = detail
-        card_y = int(h * (0.68 if round_mask else 0.64))
-        draw.rectangle([8, card_y - 2, w - 8, card_y + 40], fill=t["bg"])
-        draw.rectangle([12, card_y, 15, card_y + 36], fill=t["accent"])
-        draw.text((22, card_y), title, font=detail_font, fill=t["fg"])
-        draw.text((22, card_y + 20), line, font=small_font, fill=t["dim"])
+        card_y = int(h * (0.58 if round_mask else 0.55))
+        draw.rectangle([10, card_y - 2, w - 10, card_y + 42], fill=t["bg"])
+        draw.rectangle([10, card_y - 2, w - 10, card_y + 1], fill=live)
+        draw.text((16, card_y + 6), title, font=detail_font, fill=t["fg"])
+        draw.text((16, card_y + 26), line, font=small_font, fill=t["dim"])
 
     if round_mask:
         mask = Image.new("L", size, 0)
         ImageDraw.Draw(mask).ellipse([0, 0, w - 1, h - 1], fill=255)
-        rounded = Image.new("RGB", size, (0, 0, 0))
-        rounded.paste(img, mask=mask)
-        return rounded
-
+        out = Image.new("RGB", size, (0, 0, 0))
+        out.paste(img, mask=mask)
+        return out
     return img
 
 
 def save(img, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, format="PNG", optimize=True)
-    print(f"wrote {path.relative_to(ROOT)} ({img.size[0]}x{img.size[1]})")
+    print(f"wrote {path.relative_to(ROOT)}")
 
 
 def main():
     shots = [
-        dict(name="01_calm", theme="ink", hours="14", minutes="32", always_on="Nov 7", minute=32),
-        dict(
-            name="02_signals",
-            theme="ink",
-            hours="14",
-            minutes="32",
-            always_on="Nov 7",
-            pips=["calendar", "weather"],
-            minute=32,
-        ),
+        dict(name="01_calm", theme="ink", hour=14, minute=32, weekday="FRI", always_on="Nov 7"),
+        dict(name="02_signals", theme="ink", hour=14, minute=32, pips=["calendar", "weather"]),
         dict(
             name="03_detail",
             theme="ink",
-            hours="14",
-            minutes="32",
-            always_on="Nov 7",
+            hour=14,
+            minute=32,
             pips=["calendar", "weather", "health"],
             detail=("Standup", "in 12m"),
-            minute=32,
         ),
-        dict(
-            name="04_paper",
-            theme="paper",
-            hours="09",
-            minutes="15",
-            always_on="8420",
-            pips=["weather", "health"],
-            minute=15,
-        ),
-        dict(
-            name="05_night",
-            theme="night",
-            hours="22",
-            minutes="04",
-            always_on="",
-            minute=4,
-        ),
+        dict(name="04_paper", theme="paper", hour=9, minute=15, weekday="SAT", always_on="8420", pips=["weather", "health"]),
+        dict(name="05_night", theme="night", hour=22, minute=4, weekday="FRI", always_on=""),
     ]
-
     for shot in shots:
         name = shot.pop("name")
         save(draw_face((200, 228), round_mask=False, **shot), OUT / "emery" / f"{name}.png")
