@@ -7,11 +7,11 @@
   },
   "creation": {
     "chunk": {
-      "initial": 32768
+      "initial": 24576
     },
     "heap": {
-      "initial": 1024
+      "initial": 1728
     },
-    "stack": 512
+    "stack": 384
   }
 }

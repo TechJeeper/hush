@@ -13,7 +13,6 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const CAT_NAMES = ["calendar", "weather", "health", "system", "sun", "world"];
 const MAX_PIPS = 4;
 const DETAIL_MS = 5000;
 const SECONDS_MS = 8000;
@@ -120,15 +119,20 @@ const PRESETS = {
 };
 
 function loadSettings() {
+  const out = {};
+  const keys = Object.keys(DEFAULT_SETTINGS);
+  for (let i = 0; i < keys.length; i++) out[keys[i]] = DEFAULT_SETTINGS[keys[i]];
   const stored = localStorage.getItem("settings");
   if (stored) {
     try {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      const pk = Object.keys(parsed);
+      for (let i = 0; i < pk.length; i++) out[pk[i]] = parsed[pk[i]];
     } catch (e) {
       console.log("settings parse fail");
     }
   }
-  return { ...DEFAULT_SETTINGS };
+  return out;
 }
 
 function saveSettings() {
@@ -219,9 +223,15 @@ function updateColors() {
   dim = rgb(t.dim);
   accent = rgb(t.accent);
   railBg = rgb(t.rail);
-  pipPalette = {};
-  for (const name of CAT_NAMES) {
-    pipPalette[name] = rgb(PIP_COLORS[name]);
+  if (!pipPalette.calendar) {
+    pipPalette = {
+      calendar: rgb(PIP_COLORS.calendar),
+      weather: rgb(PIP_COLORS.weather),
+      health: rgb(PIP_COLORS.health),
+      system: rgb(PIP_COLORS.system),
+      sun: rgb(PIP_COLORS.sun),
+      world: rgb(PIP_COLORS.world)
+    };
   }
 }
 
@@ -998,7 +1008,11 @@ function asString(v, fallback) {
 function applyPreset(name) {
   const p = PRESETS[name];
   if (!p) return;
-  settings = { ...settings, ...p, preset: name };
+  const keys = Object.keys(p);
+  for (let i = 0; i < keys.length; i++) {
+    settings[keys[i]] = p[keys[i]];
+  }
+  settings.preset = name;
 }
 
 const MESSAGE_KEYS = [
@@ -1014,8 +1028,9 @@ const MESSAGE_KEYS = [
 ];
 
 const message = new Message({
-  input: 2048,
-  output: 1024,
+  /* Keep AppMessage buffers small — large inboxes burn chunk/slot heap. */
+  input: 512,
+  output: 256,
   keys: MESSAGE_KEYS,
   onReadable() {
     try {
@@ -1104,4 +1119,7 @@ const message = new Message({
 evaluateSignals(lastDate);
 appReady = true;
 drawScreen();
-maybeRefreshData(true);
+/* Defer network work so startup fits in the slot heap. */
+setTimeout(() => {
+  maybeRefreshData(true);
+}, 2500);
