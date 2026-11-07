@@ -389,21 +389,6 @@ updateLowPower();
 
 /* ── Formatting ───────────────────────────────────────────────────────────── */
 
-function formatTime(now, withSeconds) {
-  let hours = now.getHours();
-  if (!settings.use24Hour)
-    hours = hours % 12 || 12;
-  const h = settings.leadingZero
-    ? String(hours).padStart(2, "0")
-    : String(hours);
-  const m = String(now.getMinutes()).padStart(2, "0");
-  if (withSeconds) {
-    const s = String(now.getSeconds()).padStart(2, "0");
-    return `${h}:${m}:${s}`;
-  }
-  return `${h}:${m}`;
-}
-
 function formatAlwaysOn(now) {
   switch (settings.alwaysOn) {
     case "date":
@@ -601,21 +586,103 @@ function contentWidth() {
 function railGeometry() {
   const w = contentWidth();
   const h = contentHeight();
-  const railH = 10;
-  const margin = IS_ROUND ? 28 : 14;
-  const y = h - railH - (IS_ROUND ? 22 : 12);
-  const x = margin;
-  const width = w - margin * 2;
-  return { x, y, width, height: railH };
+  const railH = 8;
+  const margin = IS_ROUND ? 34 : 16;
+  const y = h - railH - (IS_ROUND ? 26 : 14);
+  return { x: margin, y, width: w - margin * 2, height: railH };
 }
 
-function drawSignalRail() {
+function timeParts(now, withSeconds) {
+  let hours = now.getHours();
+  if (!settings.use24Hour) hours = hours % 12 || 12;
+  const h = settings.leadingZero ? String(hours).padStart(2, "0") : String(hours);
+  const m = String(now.getMinutes()).padStart(2, "0");
+  if (withSeconds) {
+    return { hours: h, minutes: m + ":" + String(now.getSeconds()).padStart(2, "0") };
+  }
+  return { hours: h, minutes: m };
+}
+
+function drawAtmosphere(now) {
+  const w = contentWidth();
+  const h = contentHeight();
+  const theme = settings.theme;
+
+  /* Day progress hairline — always something alive, updates once a minute. */
+  const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
+  const barW = IS_ROUND ? (w * 0.55) | 0 : (w - 32);
+  const barX = ((w - barW) / 2) | 0;
+  const barY = IS_ROUND ? 22 : 10;
+  render.fillRectangle(railBg, barX, barY, barW, 2);
+  render.fillRectangle(accent, barX, barY, Math.max(2, (barW * dayPct) | 0), 2);
+
+  if (theme === "paper") {
+    /* Notebook margin */
+    render.fillRectangle(accent, 10, 8, 2, h - 16);
+  } else if (theme === "phosphor") {
+    render.fillRectangle(accent, 0, 0, w, 3);
+  } else if (theme === "night" || theme === "ink" || theme === "custom") {
+    /* Corner ticks */
+    const L = 10;
+    render.fillRectangle(dim, 8, 8, L, 1);
+    render.fillRectangle(dim, 8, 8, 1, L);
+    render.fillRectangle(dim, w - 8 - L, 8, L, 1);
+    render.fillRectangle(dim, w - 9, 8, 1, L);
+    render.fillRectangle(dim, 8, h - 9, L, 1);
+    render.fillRectangle(dim, 8, h - 8 - L, 1, L);
+    render.fillRectangle(dim, w - 8 - L, h - 9, L, 1);
+    render.fillRectangle(dim, w - 9, h - 8 - L, 1, L);
+  } else if (theme === "coral") {
+    render.fillRectangle(accent, barX, barY + 4, barW, 1);
+  }
+}
+
+function drawStackedTime(now, withSeconds) {
+  const w = contentWidth();
+  const h = contentHeight();
+  const parts = timeParts(now, withSeconds);
+  const always = lowPower ? `${batteryPercent}%` : formatAlwaysOn(now);
+
+  const gap = 2;
+  const ruleH = 2;
+  const alwaysH = always ? smallFont.height + 8 : 0;
+  const block = timeFont.height * 2 + gap + ruleH + 6 + alwaysH;
+  let top = ((h - block) / 2) | 0;
+  if (IS_ROUND) top = ((h - block) / 2 - 6) | 0;
+
+  const hw = render.getTextWidth(parts.hours, timeFont);
+  const mw = render.getTextWidth(parts.minutes, timeFont);
+  render.drawText(parts.hours, timeFont, fg, ((w - hw) / 2) | 0, top);
+  render.drawText(parts.minutes, timeFont, accent, ((w - mw) / 2) | 0, top + timeFont.height + gap);
+
+  const ruleY = top + timeFont.height * 2 + gap + 4;
+  const ruleW = Math.max(hw, mw) - 8;
+  const ruleX = ((w - ruleW) / 2) | 0;
+  render.fillRectangle(railBg, ruleX, ruleY, ruleW, ruleH);
+  /* Minute-within-hour marker on the rule */
+  const minPct = now.getMinutes() / 60;
+  render.fillRectangle(accent, ruleX, ruleY, Math.max(2, (ruleW * minPct) | 0), ruleH);
+
+  if (always) {
+    const aw = render.getTextWidth(always, smallFont);
+    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, ruleY + ruleH + 6);
+  }
+}
+
+function drawSignalRail(now) {
   if (lowPower) return;
   const g = railGeometry();
   render.fillRectangle(railBg, g.x, g.y, g.width, g.height);
 
   const count = activeSignals.length;
-  if (!count) return;
+  if (!count) {
+    /* Calm rail: fill through the hour so the face always feels alive. */
+    const fill = Math.max(2, ((g.width * now.getMinutes()) / 60) | 0);
+    render.fillRectangle(accent, g.x, g.y, fill, g.height);
+    /* Soft end caps */
+    render.fillRectangle(fg, g.x, g.y, 2, g.height);
+    return;
+  }
 
   const gap = 4;
   const pipW = Math.max(12, ((g.width - gap * (MAX_PIPS - 1)) / MAX_PIPS) | 0);
@@ -637,7 +704,7 @@ function drawDetailCard() {
   const w = contentWidth();
   const h = contentHeight();
   const cardH = detailFont.height + smallFont.height + 10;
-  const y = (IS_ROUND ? h * 0.62 : h * 0.58) | 0;
+  const y = (IS_ROUND ? h * 0.68 : h * 0.64) | 0;
 
   render.fillRectangle(bg, 8, y - 2, w - 16, cardH + 4);
   render.fillRectangle(accent, 12, y, 3, cardH - 2);
@@ -650,71 +717,27 @@ function drawScreen(event) {
   const now = event?.date ?? lastDate;
   if (event?.date) lastDate = event.date;
 
-  const w = contentWidth();
-  const h = contentHeight();
-  const withSeconds = showingSeconds;
-
   render.begin();
   render.fillRectangle(bg, 0, 0, render.width, render.height);
 
-  const timeStr = formatTime(now, withSeconds);
-  const tw = render.getTextWidth(timeStr, timeFont);
-  const always = lowPower ? `${batteryPercent}%` : formatAlwaysOn(now);
-  const aw = always ? render.getTextWidth(always, smallFont) : 0;
-  const block = timeFont.height + (always ? smallFont.height + 6 : 0);
-  let timeY = ((h - block) / 2) | 0;
-  if (IS_ROUND) timeY = ((h - block) / 2 - 4) | 0;
-
-  render.drawText(timeStr, timeFont, fg, ((w - tw) / 2) | 0, timeY);
-
-  if (always) {
-    const color = settings.alwaysOn === "steps" ? dim : dim;
-    render.drawText(always, smallFont, color,
-      ((w - aw) / 2) | 0, timeY + timeFont.height + 6);
-  }
+  if (!lowPower) drawAtmosphere(now);
+  drawStackedTime(now, showingSeconds);
 
   if (!lowPower) {
-    drawSignalRail();
+    drawSignalRail(now);
     if (detailIndex >= 0) drawDetailCard();
   }
 
   render.end();
 }
 
-/* Dirty-rect helpers for minute tick when only time digits change */
+/* Full redraw on the minute — stacked time + atmosphere share the frame. */
 function drawTimeOnly(now) {
-  const w = contentWidth();
-  const h = contentHeight();
-  const always = lowPower ? `${batteryPercent}%` : formatAlwaysOn(now);
-  const block = timeFont.height + (always ? smallFont.height + 6 : 0);
-  let timeY = ((h - block) / 2) | 0;
-  if (IS_ROUND) timeY = ((h - block) / 2 - 4) | 0;
-
-  const pad = 8;
-  const regionY = Math.max(0, timeY - pad);
-  const regionH = block + pad * 2;
-  const timeStr = formatTime(now, showingSeconds);
-  const tw = render.getTextWidth(timeStr, timeFont);
-
-  render.begin(0, regionY, render.width, regionH);
-  render.fillRectangle(bg, 0, regionY, render.width, regionH);
-  render.drawText(timeStr, timeFont, fg, ((w - tw) / 2) | 0, timeY);
-  if (always) {
-    const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim,
-      ((w - aw) / 2) | 0, timeY + timeFont.height + 6);
-  }
-  render.end();
+  drawScreen({ date: now });
 }
 
 function drawRailOnly() {
-  if (lowPower) return;
-  const g = railGeometry();
-  const pad = 6;
-  render.begin(0, g.y - pad, render.width, g.height + pad * 2 + 4);
-  render.fillRectangle(bg, 0, g.y - pad, render.width, g.height + pad * 2 + 4);
-  drawSignalRail();
-  render.end();
+  drawScreen({ date: lastDate });
 }
 
 /* ── Detail / seconds interaction ─────────────────────────────────────────── */
