@@ -636,59 +636,54 @@ function drawPoster(now, withSeconds) {
   const moment = momentWord(now);
   const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
   const g = railGeometry();
-  const pad = IS_ROUND ? 24 : 8;
+  const pad = IS_ROUND ? 22 : 6;
 
-  /* Day stripe — short and tight against the left edge. */
-  const stripeW = IS_ROUND ? 4 : 5;
-  const stripeTop = IS_ROUND ? 36 : 28;
-  const stripeBot = g.y - 10;
+  /* Thin day stripe */
+  const stripeW = 4;
+  const stripeTop = IS_ROUND ? 34 : 26;
+  const stripeBot = g.y - 8;
   const stripeSpan = stripeBot - stripeTop;
-  const stripeH = Math.max(20, (stripeSpan * dayPct) | 0);
+  const stripeH = Math.max(16, (stripeSpan * dayPct) | 0);
   render.fillRectangle(railBg, pad, stripeTop, stripeW, stripeSpan);
   render.fillRectangle(live, pad, stripeBot - stripeH, stripeW, stripeH);
 
-  /* Header row: weekday + moment — compact, frees vertical room for time. */
-  const headerY = IS_ROUND ? 22 : 8;
+  /* Compact header */
+  const headerY = IS_ROUND ? 18 : 4;
   const day = DAYS[now.getDay()].toUpperCase();
-  render.drawText(day, smallFont, dim, pad + stripeW + 6, headerY);
+  render.drawText(day, smallFont, dim, pad + stripeW + 5, headerY);
   const momW = render.getTextWidth(moment, smallFont);
   render.drawText(moment, smallFont, live, w - pad - momW, headerY);
 
-  /* Time row: huge hours + minute chip on ONE line to fill the width. */
-  const chipPadX = 4;
-  const chipPadY = 2;
+  /*
+   * Stacked hero time — largest font, fills the vertical band between
+   * header and rail so the face doesn't feel hollow.
+   */
+  const chipPadX = 8;
+  const chipPadY = 1;
   const hourW = render.getTextWidth(parts.hours, timeFont);
   const minW = render.getTextWidth(parts.minutes, timeFont);
-  const chipW = minW + chipPadX * 2;
+  const chipW = Math.min(w - pad * 2 - 8, minW + chipPadX * 2);
   const chipH = timeFont.height + chipPadY * 2;
-  const gap = 6;
-  const rowW = hourW + gap + chipW;
-  const contentLeft = pad + stripeW + 6;
-  const contentRight = w - pad;
-  const avail = contentRight - contentLeft;
-  let hourX = contentLeft;
-  let chipX = contentLeft + hourW + gap;
-  /* If the pair is narrower than the band, spread it; if wider, pack left. */
-  if (rowW < avail - 4) {
-    hourX = contentLeft + (((avail - rowW) / 2) | 0);
-    chipX = hourX + hourW + gap;
-  } else {
-    chipX = Math.min(chipX, contentRight - chipW);
-  }
+  const stackGap = IS_ROUND ? 2 : 0;
+  const metaH = always ? smallFont.height + 2 : 0;
+  const blockH = timeFont.height + stackGap + chipH + metaH;
 
-  const metaH = always ? smallFont.height + 4 : 0;
-  const blockH = timeFont.height + metaH;
-  let hourY = ((g.y - 8 - headerY - smallFont.height - blockH) / 2 + headerY + smallFont.height) | 0;
-  if (hourY < headerY + smallFont.height + 4)
-    hourY = headerY + smallFont.height + 4;
+  const topBound = headerY + smallFont.height + 2;
+  const botBound = g.y - 6;
+  let hourY = topBound + (((botBound - topBound - blockH) / 2) | 0);
+  if (hourY < topBound) hourY = topBound;
 
-  render.drawText(parts.hours, timeFont, fg, hourX, hourY);
-  render.fillRectangle(live, chipX, hourY - chipPadY, chipW, chipH);
-  render.drawText(parts.minutes, timeFont, bg, chipX + chipPadX, hourY);
+  render.drawText(parts.hours, timeFont, fg, ((w - hourW) / 2) | 0, hourY);
+
+  const chipX = ((w - chipW) / 2) | 0;
+  const chipY = hourY + timeFont.height + stackGap;
+  render.fillRectangle(live, chipX, chipY, chipW, chipH);
+  const minX = chipX + (((chipW - minW) / 2) | 0);
+  render.drawText(parts.minutes, timeFont, bg, minX, chipY + chipPadY);
 
   if (always) {
     const aw = render.getTextWidth(always, smallFont);
-    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, hourY + timeFont.height + 2);
+    render.drawText(always, smallFont, dim, ((w - aw) / 2) | 0, chipY + chipH + 1);
   }
 }
 
