@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Store screenshots — stacked hero time filling the vertical band."""
+"""Store screenshots — full-bleed minute plate + large stacked hours."""
 
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ def draw_face(
     live = living(hour)
     img = Image.new("RGB", size, t["bg"])
     draw = ImageDraw.Draw(img)
-    time_font = font(52 if w >= 240 else 48, bold=True)
+    time_font = font(56 if w >= 240 else 50, bold=True)
     small_font = font(13)
     detail_font = font(15, bold=True)
 
@@ -119,10 +119,10 @@ def draw_face(
     hour_w = hb[2] - hb[0]
     min_w = mb[2] - mb[0]
     th = hb[3] - hb[1]
-    chip_pad_x, chip_pad_y = 8, 1
-    chip_w = min(w - pad * 2 - 8, min_w + chip_pad_x * 2)
+    chip_pad_y = 4
+    chip_w = w - pad * 2 - stripe_w - 4
     chip_h = th + chip_pad_y * 2
-    stack_gap = 2 if round_mask else 0
+    stack_gap = -6
     meta_h = 16 if always_on else 0
     block_h = th + stack_gap + chip_h + meta_h
 
@@ -130,11 +130,11 @@ def draw_face(
     bot_bound = rail_y - 6
     hour_y = top_bound + max(0, (bot_bound - top_bound - block_h) // 2)
 
-    draw.text(((w - hour_w) // 2, hour_y), hours, font=time_font, fill=t["fg"])
-    chip_x = (w - chip_w) // 2
+    chip_x = pad + stripe_w + 2
     chip_y = hour_y + th + stack_gap
     draw.rectangle([chip_x, chip_y, chip_x + chip_w, chip_y + chip_h], fill=live)
-    draw.text((chip_x + (chip_w - min_w) // 2, chip_y + chip_pad_y), mins, font=time_font, fill=t["bg"])
+    draw.text(((w - hour_w) // 2, hour_y), hours, font=time_font, fill=t["fg"])
+    draw.text(((w - min_w) // 2, chip_y + chip_pad_y), mins, font=time_font, fill=t["bg"])
 
     if always_on:
         ab = draw.textbbox((0, 0), always_on, font=small_font)
@@ -158,7 +158,7 @@ def draw_face(
 
     if detail:
         title, line = detail
-        card_y = int(h * 0.48)
+        card_y = int(h * 0.42)
         draw.rectangle([8, card_y - 2, w - 8, card_y + 38], fill=t["bg"])
         draw.rectangle([8, card_y - 2, w - 8, card_y + 1], fill=live)
         draw.text((14, card_y + 4), title, font=detail_font, fill=t["fg"])
