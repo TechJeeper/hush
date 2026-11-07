@@ -587,8 +587,8 @@ function railGeometry() {
   const w = contentWidth();
   const h = contentHeight();
   const railH = 12;
-  const margin = IS_ROUND ? 36 : 14;
-  const y = h - railH - (IS_ROUND ? 24 : 12);
+  const margin = IS_ROUND ? 44 : 14;
+  const y = h - railH - (IS_ROUND ? 32 : 12);
   return { x: margin, y, width: w - margin * 2, height: railH };
 }
 
@@ -617,6 +617,17 @@ function livingAccentRGB(now) {
 
 function momentWord(now) {
   const hr = now.getHours();
+  /* Shorter labels on round so they stay inside the circular mask */
+  if (IS_ROUND) {
+    if (hr < 5) return "LATE";
+    if (hr < 7) return "DAWN";
+    if (hr < 11) return "AM";
+    if (hr < 13) return "NOON";
+    if (hr < 17) return "PM";
+    if (hr < 19) return "GOLD";
+    if (hr < 22) return "EVE";
+    return "NIGHT";
+  }
   if (hr < 5) return "LATE";
   if (hr < 7) return "DAWN";
   if (hr < 11) return "MORNING";
@@ -625,6 +636,10 @@ function momentWord(now) {
   if (hr < 19) return "GOLDEN";
   if (hr < 22) return "EVENING";
   return "NIGHT";
+}
+
+function detailCardHeight() {
+  return detailFont.height + smallFont.height + 16;
 }
 
 function drawPoster(now, withSeconds) {
@@ -636,27 +651,39 @@ function drawPoster(now, withSeconds) {
   const moment = momentWord(now);
   const dayPct = (now.getHours() * 60 + now.getMinutes()) / (24 * 60);
   const g = railGeometry();
-  const pad = IS_ROUND ? 24 : 8;
+  const pad = IS_ROUND ? 40 : 8;
+  const gap = 10;
 
-  /* Day stripe */
+  /* Day stripe — stop above the rail */
   const stripeW = IS_ROUND ? 4 : 5;
-  const stripeTop = IS_ROUND ? 32 : 24;
-  const stripeBot = g.y - 8;
-  const stripeSpan = stripeBot - stripeTop;
+  const stripeTop = IS_ROUND ? 56 : 24;
+  const stripeBot = g.y - 6;
+  const stripeSpan = Math.max(8, stripeBot - stripeTop);
   const stripeH = Math.max(16, (stripeSpan * dayPct) | 0);
   render.fillRectangle(railBg, pad, stripeTop, stripeW, stripeSpan);
   render.fillRectangle(live, pad, stripeBot - stripeH, stripeW, stripeH);
 
-  /* Compact header */
-  const headerY = IS_ROUND ? 18 : 4;
+  /* Header — inset on round so text clears the circular mask */
+  const headerY = IS_ROUND ? 44 : 4;
   const day = DAYS[now.getDay()].toUpperCase();
-  render.drawText(day, smallFont, dim, pad + stripeW + 6, headerY);
+  const dayX = pad + stripeW + 6;
+  const dayW = render.getTextWidth(day, smallFont);
   const momW = render.getTextWidth(moment, smallFont);
-  render.drawText(moment, smallFont, live, w - pad - momW, headerY);
+  let momX = w - pad - momW;
+  let momY = headerY;
+  if (momX < dayX + dayW + gap) {
+    /* Too tight for one row: put moment on the next line, right-aligned */
+    momX = w - pad - momW;
+    momY = headerY + smallFont.height + 2;
+  }
+  render.drawText(day, smallFont, dim, dayX, headerY);
+  render.drawText(moment, smallFont, live, momX, momY);
 
   /*
-   * Staggered time: big hours left, minute chip dropped right.
-   * Sized to fill the band between header and rail without a full-bleed plate.
+   * Staggered time with hard non-overlap:
+   * 1) Prefer chip to the right of hours with a clear gap.
+   * 2) If width is tight, place chip fully below hours (still right-aligned).
+   * 3) Always-on sits under the lower of the two, left-aligned, clear of the chip.
    */
   const chipPadX = 6;
   const chipPadY = 3;
@@ -664,28 +691,65 @@ function drawPoster(now, withSeconds) {
   const minW = render.getTextWidth(parts.minutes, timeFont);
   const chipW = minW + chipPadX * 2;
   const chipH = timeFont.height + chipPadY * 2;
-  const staggerY = IS_ROUND ? ((timeFont.height * 0.45) | 0) : ((timeFont.height * 0.55) | 0);
-  const metaH = always ? smallFont.height + 2 : 0;
-  const blockH = timeFont.height + staggerY + chipPadY + metaH;
+  /* Hide always-on while the detail card is up to avoid crowding */
+  const showAlways = always && detailIndex < 0;
+  const metaH = showAlways ? smallFont.height + gap : 0;
+  const detailReserve = detailIndex >= 0 ? detailCardHeight() + gap : 0;
 
-  const topBound = headerY + smallFont.height + 2;
-  const botBound = g.y - 6;
-  let hourY = topBound + (((botBound - topBound - blockH) / 2) | 0);
-  if (hourY < topBound) hourY = topBound;
-
+  const headerBottom = Math.max(headerY, momY) + smallFont.height;
+  const topBound = headerBottom + gap;
+  const botBound = g.y - gap - detailReserve;
   const hourX = pad + stripeW + 4;
-  let chipX = w - pad - chipW;
-  const chipY = hourY + staggerY;
-  /* Keep chip from colliding with hours on narrow faces */
-  if (chipX < hourX + hourW - 8)
-    chipX = Math.min(w - pad - chipW, hourX + hourW - 12);
+  const rightLimit = w - pad;
+
+  let chipX = rightLimit - chipW;
+  let chipY;
+  let hourY;
+  let staggerY = IS_ROUND ? ((timeFont.height * 0.35) | 0) : ((timeFont.height * 0.45) | 0);
+  const availH = Math.max(0, botBound - topBound);
+  const staggerBlockH = Math.max(timeFont.height, staggerY + chipH) + metaH;
+  const stackBlockH = timeFont.height + gap + chipH + metaH;
+
+  /* Side-by-side only when width AND height both clear — else stack */
+  const sideBySide =
+    hourX + hourW + gap + chipW <= rightLimit && staggerBlockH <= availH;
+  if (sideBySide) {
+    chipX = rightLimit - chipW;
+    hourY = topBound + Math.max(0, ((availH - staggerBlockH) / 2) | 0);
+    chipY = hourY + staggerY;
+  } else {
+    hourY = topBound + Math.max(0, ((availH - stackBlockH) / 2) | 0);
+    chipY = hourY + timeFont.height + gap;
+    chipX = rightLimit - chipW;
+  }
+
+  /* Absolute non-overlap: axis-aligned boxes must not intersect */
+  const hourRight = hourX + hourW;
+  const hourBottom = hourY + timeFont.height;
+  if (!(chipX >= hourRight + gap || chipY >= hourBottom + gap)) {
+    chipY = hourBottom + gap;
+    chipX = rightLimit - chipW;
+  }
 
   render.drawText(parts.hours, timeFont, fg, hourX, hourY);
   render.fillRectangle(live, chipX, chipY, chipW, chipH);
   render.drawText(parts.minutes, timeFont, bg, chipX + chipPadX, chipY + chipPadY);
 
-  if (always) {
-    render.drawText(always, smallFont, dim, hourX, Math.max(hourY + timeFont.height + 1, chipY + chipH + 2));
+  if (showAlways) {
+    const alwaysW = render.getTextWidth(always, smallFont);
+    /* Prefer the pocket under the hours when it stays clear of the chip */
+    let ay = hourY + timeFont.height + 4;
+    let ax = hourX;
+    const pocketOk =
+      ay + smallFont.height <= botBound &&
+      (ay >= chipY + chipH + gap || ax + alwaysW <= chipX - gap);
+    if (!pocketOk) {
+      ay = Math.max(hourY + timeFont.height, chipY + chipH) + 4;
+      ax = hourX;
+      if (ay + smallFont.height > botBound) return;
+      if (ay < chipY + chipH && ax + alwaysW > chipX - gap) return;
+    }
+    render.drawText(always, smallFont, dim, ax, ay);
   }
 }
 
@@ -699,7 +763,9 @@ function drawSignalRail(now) {
   if (!count) {
     const fill = Math.max(3, ((g.width * now.getMinutes()) / 60) | 0);
     render.fillRectangle(live, g.x, g.y, fill, g.height);
-    render.fillRectangle(fg, g.x + fill - 2, g.y - 2, 3, g.height + 4);
+    /* Marker stays inside the rail bounds */
+    const mx = Math.min(g.x + g.width - 3, Math.max(g.x, g.x + fill - 2));
+    render.fillRectangle(fg, mx, g.y, 3, g.height);
     return;
   }
 
@@ -711,7 +777,7 @@ function drawSignalRail(now) {
     const color = pipPalette[s.id] || live;
     render.fillRectangle(color, x, g.y, pipW, g.height);
     if (detailIndex === i) {
-      render.fillRectangle(fg, x, g.y - 4, pipW, 3);
+      render.fillRectangle(fg, x, g.y - 3, pipW, 2);
     }
     x += pipW + gap;
   }
@@ -721,13 +787,13 @@ function drawDetailCard() {
   if (detailIndex < 0 || detailIndex >= activeSignals.length) return;
   const s = activeSignals[detailIndex];
   const w = contentWidth();
-  const h = contentHeight();
-  const cardH = detailFont.height + smallFont.height + 12;
-  const y = (IS_ROUND ? h * 0.58 : h * 0.55) | 0;
+  const g = railGeometry();
+  const cardH = detailCardHeight();
+  const y = g.y - cardH - 4;
   const live = rgb(livingAccentRGB(lastDate));
 
-  render.fillRectangle(bg, 10, y - 2, w - 20, cardH + 4);
-  render.fillRectangle(live, 10, y - 2, w - 20, 3);
+  render.fillRectangle(bg, 10, y, w - 20, cardH);
+  render.fillRectangle(live, 10, y, w - 20, 3);
   render.drawText(s.title, detailFont, fg, 16, y + 6);
   render.drawText(s.detail, smallFont, dim, 16, y + 6 + detailFont.height + 2);
 }

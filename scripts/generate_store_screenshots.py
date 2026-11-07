@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Store screenshots — staggered hours + minute chip, tightened."""
+"""Store screenshots — staggered hours + minute chip, no overlap."""
 
 from __future__ import annotations
 
@@ -39,7 +39,23 @@ def living(hour: int):
     return (120, 140, 230)
 
 
-def moment(hour: int) -> str:
+def moment(hour: int, round_mask: bool = False) -> str:
+    if round_mask:
+        if hour < 5:
+            return "LATE"
+        if hour < 7:
+            return "DAWN"
+        if hour < 11:
+            return "AM"
+        if hour < 13:
+            return "NOON"
+        if hour < 17:
+            return "PM"
+        if hour < 19:
+            return "GOLD"
+        if hour < 22:
+            return "EVE"
+        return "NIGHT"
     if hour < 5:
         return "LATE"
     if hour < 7:
@@ -90,58 +106,98 @@ def draw_face(
     small_font = font(13)
     detail_font = font(15, bold=True)
 
-    pad = 24 if round_mask else 8
-    margin = 36 if round_mask else 14
+    pad = 40 if round_mask else 8
+    margin = 44 if round_mask else 14
     rail_h = 12
-    rail_y = h - rail_h - (24 if round_mask else 12)
+    rail_y = h - rail_h - (32 if round_mask else 12)
     rail_x = margin
     rail_w = w - margin * 2
 
+    gap = 10
     stripe_w = 4 if round_mask else 5
-    stripe_top = 32 if round_mask else 24
-    stripe_bot = rail_y - 8
+    stripe_top = 56 if round_mask else 24
+    stripe_bot = rail_y - 6
     day_pct = (hour * 60 + minute) / (24 * 60)
-    span = stripe_bot - stripe_top
+    span = max(8, stripe_bot - stripe_top)
     stripe_h = max(16, int(span * day_pct))
     draw.rectangle([pad, stripe_top, pad + stripe_w - 1, stripe_bot], fill=t["rail"])
     draw.rectangle([pad, stripe_bot - stripe_h, pad + stripe_w - 1, stripe_bot], fill=live)
 
-    header_y = 18 if round_mask else 4
-    draw.text((pad + stripe_w + 6, header_y), weekday, font=small_font, fill=t["dim"])
-    word = moment(hour)
+    header_y = 44 if round_mask else 4
+    day_x = pad + stripe_w + 6
+    word = moment(hour, round_mask)
     wb = draw.textbbox((0, 0), word, font=small_font)
-    draw.text((w - pad - (wb[2] - wb[0]), header_y), word, font=small_font, fill=live)
+    mom_w = wb[2] - wb[0]
+    day_bb = draw.textbbox((0, 0), weekday, font=small_font)
+    day_w = day_bb[2] - day_bb[0]
+    mom_x = w - pad - mom_w
+    mom_y = header_y
+    if mom_x < day_x + day_w + gap:
+        mom_x = w - pad - mom_w
+        mom_y = header_y + 14
+    draw.text((day_x, header_y), weekday, font=small_font, fill=t["dim"])
+    draw.text((mom_x, mom_y), word, font=small_font, fill=live)
 
     hours = f"{hour:02d}"
     mins = f"{minute:02d}"
+    ascent, descent = time_font.getmetrics()
+    th = ascent + descent
     hb = draw.textbbox((0, 0), hours, font=time_font)
     mb = draw.textbbox((0, 0), mins, font=time_font)
     hour_w = hb[2] - hb[0]
     min_w = mb[2] - mb[0]
-    th = hb[3] - hb[1]
     chip_pad_x, chip_pad_y = 6, 3
     chip_w = min_w + chip_pad_x * 2
     chip_h = th + chip_pad_y * 2
-    stagger = int(th * (0.45 if round_mask else 0.55))
-    meta_h = 16 if always_on else 0
-    block_h = th + stagger + chip_pad_y + meta_h
+    show_always = bool(always_on) and not detail
+    meta_h = 16 if show_always else 0
+    detail_reserve = 40 + gap if detail else 0
 
-    top_bound = header_y + 16
-    bot_bound = rail_y - 6
-    hour_y = top_bound + max(0, (bot_bound - top_bound - block_h) // 2)
+    top_bound = max(header_y, mom_y) + 14 + gap
+    bot_bound = rail_y - gap - detail_reserve
     hour_x = pad + stripe_w + 4
-    chip_x = w - pad - chip_w
-    chip_y = hour_y + stagger
-    if chip_x < hour_x + hour_w - 8:
-        chip_x = min(w - pad - chip_w, hour_x + hour_w - 12)
+    right_limit = w - pad
+    stagger = int(th * (0.35 if round_mask else 0.45))
+
+    avail_h = max(0, bot_bound - top_bound)
+    stagger_block_h = max(th, stagger + chip_h) + meta_h
+    stack_block_h = th + gap + chip_h + meta_h
+    side_by_side = (
+        hour_x + hour_w + gap + chip_w <= right_limit and stagger_block_h <= avail_h
+    )
+    if side_by_side:
+        chip_x = right_limit - chip_w
+        hour_y = top_bound + max(0, (avail_h - stagger_block_h) // 2)
+        chip_y = hour_y + stagger
+    else:
+        hour_y = top_bound + max(0, (avail_h - stack_block_h) // 2)
+        chip_y = hour_y + th + gap
+        chip_x = right_limit - chip_w
+
+    hour_right = hour_x + hour_w
+    hour_bottom = hour_y + th
+    if not (chip_x >= hour_right + gap or chip_y >= hour_bottom + gap):
+        chip_y = hour_bottom + gap
+        chip_x = right_limit - chip_w
 
     draw.text((hour_x, hour_y), hours, font=time_font, fill=t["fg"])
-    draw.rectangle([chip_x, chip_y, chip_x + chip_w, chip_y + chip_h], fill=live)
+    draw.rectangle([chip_x, chip_y, chip_x + chip_w - 1, chip_y + chip_h - 1], fill=live)
     draw.text((chip_x + chip_pad_x, chip_y + chip_pad_y), mins, font=time_font, fill=t["bg"])
 
-    if always_on:
-        ay = max(hour_y + th + 1, chip_y + chip_h + 2)
-        draw.text((hour_x, ay), always_on, font=small_font, fill=t["dim"])
+    if show_always:
+        aw = draw.textbbox((0, 0), always_on, font=small_font)
+        always_w = aw[2] - aw[0]
+        ay = hour_y + th + 4
+        ax = hour_x
+        pocket_ok = ay + 14 <= bot_bound and (
+            ay >= chip_y + chip_h + gap or ax + always_w <= chip_x - gap
+        )
+        if not pocket_ok:
+            ay = max(hour_y + th, chip_y + chip_h) + 4
+            if ay + 14 > bot_bound or (ay < chip_y + chip_h and ax + always_w > chip_x - gap):
+                ay = None
+        if ay is not None:
+            draw.text((ax, ay), always_on, font=small_font, fill=t["dim"])
 
     draw.rectangle([rail_x, rail_y, rail_x + rail_w, rail_y + rail_h], fill=t["rail"])
     if pips:
@@ -151,20 +207,22 @@ def draw_face(
         for i, name in enumerate(pips[:4]):
             draw.rectangle([x, rail_y, x + pip_w, rail_y + rail_h], fill=PIP.get(name, live))
             if detail and i == 0:
-                draw.rectangle([x, rail_y - 4, x + pip_w, rail_y - 1], fill=t["fg"])
+                draw.rectangle([x, rail_y - 3, x + pip_w, rail_y - 1], fill=t["fg"])
             x += pip_w + gap_p
     else:
         fill = max(3, int(rail_w * minute / 60))
         draw.rectangle([rail_x, rail_y, rail_x + fill, rail_y + rail_h], fill=live)
-        draw.rectangle([rail_x + fill - 2, rail_y - 2, rail_x + fill + 1, rail_y + rail_h + 2], fill=t["fg"])
+        mx = min(rail_x + rail_w - 3, max(rail_x, rail_x + fill - 2))
+        draw.rectangle([mx, rail_y, mx + 3, rail_y + rail_h], fill=t["fg"])
 
     if detail:
         title, line = detail
-        card_y = int(h * 0.55)
-        draw.rectangle([8, card_y - 2, w - 8, card_y + 38], fill=t["bg"])
-        draw.rectangle([8, card_y - 2, w - 8, card_y + 1], fill=live)
-        draw.text((14, card_y + 4), title, font=detail_font, fill=t["fg"])
-        draw.text((14, card_y + 22), line, font=small_font, fill=t["dim"])
+        card_h = 40
+        card_y = rail_y - card_h - 4
+        draw.rectangle([10, card_y, w - 10, card_y + card_h], fill=t["bg"])
+        draw.rectangle([10, card_y, w - 10, card_y + 3], fill=live)
+        draw.text((16, card_y + 6), title, font=detail_font, fill=t["fg"])
+        draw.text((16, card_y + 24), line, font=small_font, fill=t["dim"])
 
     if round_mask:
         mask = Image.new("L", size, 0)
